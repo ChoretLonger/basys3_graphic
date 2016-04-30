@@ -57,25 +57,25 @@ reg [11:0]dis_data;
 reg [22:0]count;
 wire led = count[22];
 assign {r,g,b}=(flag==1?dis_data[11:0]:0);
-////////////////////////////////////
+////////////////////////////////////  a module that used for the camera(ov7725) initialization
 ov7725_sccb_init ov7725_sccb_init 
 (
-    .clk(count[12]),
-    .soic(soic),
-    .soid(soid),
-    .cfg_sta(cfg_sta)
+    .clk(count[12]),    // module clk input
+    .soic(soic),            // clk for IIC
+    .soid(soid),            // data for IIC
+    .cfg_sta(cfg_sta)       // status LED output for IIC init status,LED ON when init success
 );
-//////////////////////////////////////
+//////////////////////////////////////  a clock generator,
 clk_wiz_0 clk_wiz_0 
  (
  // Clock in ports
     .clk_in1(clk),
   // Clock out ports
-    .clk_out1(dclk),
-    .clk_out2(wclk),
-    .clk_out3(cam_xclk)              
+    .clk_out1(dclk),    // main clk for display and analysis
+    .clk_out2(wclk),    // seems it is just a test clk...
+    .clk_out3(cam_xclk)              // a 25M clk output for camera
  );
-///////////////////////////////////
+///////////////////////////////////  a clk devider for ov7725 init module
 always@(posedge dclk)
     begin
         count <= count + 1 ;
@@ -96,8 +96,9 @@ always@(posedge dclk)
         else if (count_h == 1056) count_v <= count_v+1;
     end
 //Hsync and Vsync generator.
-reg [2:0]res_bri[76799:0];
-reg [16:0]res_addr_bri;
+
+reg [2:0]res_bri[76799:0];  // a RAM for results of color analysis
+reg [16:0]res_addr_bri;     // addrss reg 
 
 //reg res_black[76799:0];
 //reg [16:0]res_addr_black;
@@ -109,14 +110,15 @@ reg [9:0]v_count;
 
 //wire comp_res = ~((res_bri[addrb] == res_black[addrb])&&( res_black[addrb] == res_move[addrb])&&( res_bri[addrb] == res_move[addrb])) ;
 
+// color channel for RGB565,16bit per pixel
 wire [4:0]red = data_b[15:11] ;
 wire [4:0]green = data_b[10:6] ;
 wire [4:0]blue = data_b[4:0] ;
 
 //wire scr_res = (data_b == 16'hffff) ;
 
-reg [2:0]scr_res;
-wire now_res = (res_bri[addrb] != scr_res) ? 1 : 0 ;
+reg [2:0]scr_res;       // color analysis result
+wire now_res = (res_bri[addrb] != scr_res) ? 1 : 0 ;        // differenes result
 
 always@(data_b)
     begin
@@ -129,7 +131,7 @@ always@(data_b)
         else scr_res <= 0 ;
     end
     
-reg [9:0]res_co;
+reg [9:0]res_co;    // counter for number of difference
 
 //wire s1_res = (res_bri[addrb] ^ res_black[addrb]);
 //reg [9:0]s1_co;
@@ -137,10 +139,10 @@ reg [9:0]res_co;
 //wire s2_res = (res_black[addrb] ^ res_move[addrb]);
 //reg [9:0]s2_co;
 
-reg [19:0]judge_array;
-wire judge_res = (judge_array == 20'hfffff) ? 1 : 0 ;
+reg [19:0]judge_array;      // judge array
+wire judge_res = (judge_array == 20'hfffff) ? 1 : 0 ;       // judge result.If there are 20 differences,mark the pixel
 reg [9:0]h_pos;
-reg [9:0]v_pos;
+reg [9:0]v_pos;         // the mark location reg
 
 parameter squa = 10 ;
 //wire res_out = res[res_addr] ;
@@ -159,7 +161,7 @@ always@(posedge dclk)
                 if ((count_h > 216) && (count_h < 1017))
                     begin
                         flag <= 1;
-                        if(count_v == 28 ) 
+                        if(count_v == 28 )  // clear the ctl reg's,get ready to display
                             begin
                                 addrb <= 0 ;
                                 res_addr_bri <= 0 ;
@@ -173,14 +175,15 @@ always@(posedge dclk)
                             begin
                                 addrb <= addrb+1;
                                 if(((count_h > (h_pos - squa)) && (count_h < (h_pos + squa)) && ((count_v == (v_pos - squa)) || (count_v == (v_pos + squa)))) || ((count_v > (v_pos - squa)) && (count_v < (v_pos + squa)) && ((count_h == (h_pos - squa)) || (count_h == (h_pos + squa)))))
-                                    dis_data[11:0] <= 12'hf00 ;
-                                else dis_data[11:0] <= {data_b[15:12],data_b[10:7],data_b[4:1]} ;
+                                    //dis_data[11:0] <= 12'hf00 ;         //if there is a mark pixel,use a red square to mark
+                                    ;
+                                else dis_data[11:0] <= {data_b[15:12],data_b[10:7],data_b[4:1]} ;       // if not,display the data
                                 if(now_res) res_co <= res_co + 1 ;
                                 
 //                                if(s1_res) s1_co <= s1_co + 1 ;
 //                                if(s2_res) s2_co <= s2_co + 1 ;
                                 
-                                if(v_count == 0)
+                                if(v_count == 0)        // capture a frame of result as reference per sec
                                     begin
                                         /*
                                         if(data_b == 16'hffff) res_bri[addrb] <= 1 ;
@@ -199,14 +202,14 @@ always@(posedge dclk)
                                 
                                 judge_array[0] <= now_res ;
                                 judge_array[19:1] <= judge_array[18:0] ;
-                                if(judge_res) 
+                                if(judge_res)               // if 20 pixels changer at a same frame,mark the pixel
                                     begin
                                         h_pos <= (count_h - 5) ;
                                         v_pos <= (count_v - 5) ;
                                     end
                                     
                             end
-                        else if ((count_h > 550) && (count_h < 871) && (count_v > 28) && (count_v < 270))
+                        else if ((count_h > 550) && (count_h < 871) && (count_v > 28) && (count_v < 270))   // display the ref frame
                             begin
                                 res_addr_bri <= res_addr_bri + 1 ;
                                 case(res_bri[res_addr_bri])
@@ -250,7 +253,7 @@ always@(posedge dclk)
         else 
             addrb<=0;
     end
-////////////////////////////////////////////////
+//////////////////////////////////////////////// a dual-port RAM for frame data
 reg [7:0]high_8bit;
 wire [15:0]data_a = {high_8bit,cam_dat} ;
 //wire [15:0]data_a = test_dat ;
@@ -274,7 +277,7 @@ blk_mem_gen_0 blk_mem_gen_0
 reg [9:0]cam_testco;
 reg [15:0]test_dat;
 
-always@(posedge cam_pclk)
+always@(posedge cam_pclk)       // a time logic to receive camera data
 	begin
 		if(cam_href)
 			 begin

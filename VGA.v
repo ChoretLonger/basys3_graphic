@@ -100,6 +100,9 @@ always@(posedge dclk)
 reg [2:0]res_bri[76799:0];  // a RAM for results of color analysis
 reg [16:0]res_addr_bri;     // addrss reg 
 
+reg res_over[76799:0];  
+reg [16:0]res_addr_over;     // addrss reg 
+
 //reg res_black[76799:0];
 //reg [16:0]res_addr_black;
 
@@ -144,7 +147,7 @@ wire judge_res = (judge_array == 20'hfffff) ? 1 : 0 ;       // judge result.If t
 reg [9:0]h_pos;
 reg [9:0]v_pos;         // the mark location reg
 
-parameter squa = 10 ;
+parameter squa = 10 ,compval = 25;
 //wire res_out = res[res_addr] ;
 always@(posedge dclk)
     begin
@@ -165,7 +168,7 @@ always@(posedge dclk)
                             begin
                                 addrb <= 0 ;
                                 res_addr_bri <= 0 ;
-//                                res_addr_black <= 0 ;
+                                res_addr_over <= 0 ;
 //                                res_addr_move <= 0 ;
                                 res_co <= 0 ;
 //                                s1_co <= 0 ;
@@ -200,6 +203,9 @@ always@(posedge dclk)
                                         else res_bri[addrb] <= 0 ;
                                     end
                                 
+                               if((red > compval) && (green >compval) && (blue > compval))  res_over[addrb] <= 1 ;
+                               else  res_over[addrb] <= 0 ;                         // over flow judge
+                                
                                 judge_array[0] <= now_res ;
                                 judge_array[19:1] <= judge_array[18:0] ;
                                 if(judge_res)               // if 20 pixels changer at a same frame,mark the pixel
@@ -224,8 +230,8 @@ always@(posedge dclk)
                             end
                         else if ((count_h > 220) && (count_h < 541) && (count_v > 280) && (count_v < 522))
                             begin
-                                /*res_addr_black <= res_addr_black + 1 ;
-                                dis_data[11:0] <= (res_black[res_addr_black]) ? 12'hfff : 12'h000 ;*/
+                                res_addr_over <= res_addr_over + 1 ;
+                                dis_data[11:0] <= (res_over[res_addr_over]) ? 12'hfff : 12'h000 ;
                             end
                         else if ((count_h > 550) && (count_h < 871) && (count_v > 280) && (count_v < 522))
                             begin

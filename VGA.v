@@ -100,7 +100,7 @@ always@(posedge dclk)
 reg [2:0]res_bri[76799:0];  // a RAM for results of color analysis
 reg [16:0]res_addr_bri;     // addrss reg 
 
-reg res_over[76799:0];  
+reg res_over[319:0];  
 reg [16:0]res_addr_over;     // addrss reg 
 
 //reg res_black[76799:0];
@@ -147,7 +147,7 @@ wire judge_res = (judge_array == 20'hfffff) ? 1 : 0 ;       // judge result.If t
 reg [9:0]h_pos;
 reg [9:0]v_pos;         // the mark location reg
 
-parameter squa = 10 ,compval = 25;
+parameter squa = 10 ,compval = 25, POSH = 220 , POSV = 28 ;
 //wire res_out = res[res_addr] ;
 always@(posedge dclk)
     begin
@@ -168,13 +168,18 @@ always@(posedge dclk)
                             begin
                                 addrb <= 0 ;
                                 res_addr_bri <= 0 ;
-                                res_addr_over <= 0 ;
 //                                res_addr_move <= 0 ;
                                 res_co <= 0 ;
 //                                s1_co <= 0 ;
 //                                s2_co <= 0 ;
                             end
-                        else if ((count_h > 220) && (count_h < 541) && (count_v > 28) && (count_v < 270))
+                            
+                        else if(( count_h == 542 ) || ( count_h == 3 ))
+                            begin
+                                res_addr_over <= 0 ;
+                            end
+                            
+                        else if ((count_h > POSH) && (count_h < ( POSH + 321) ) && (count_v > POSV) && (count_v < ( POSV + 241 ) ))
                             begin
                                 addrb <= addrb+1;
                                 if(((count_h > (h_pos - squa)) && (count_h < (h_pos + squa)) && ((count_v == (v_pos - squa)) || (count_v == (v_pos + squa)))) || ((count_v > (v_pos - squa)) && (count_v < (v_pos + squa)) && ((count_h == (h_pos - squa)) || (count_h == (h_pos + squa)))))
@@ -203,8 +208,9 @@ always@(posedge dclk)
                                         else res_bri[addrb] <= 0 ;
                                     end
                                 
-                               if((red > compval) && (green >compval) && (blue > compval))  res_over[addrb] <= 1 ;
-                               else  res_over[addrb] <= 0 ;                         // over flow judge
+                               res_addr_over <= res_addr_over + 1 ;
+                               if((red > compval) && (green >compval) && (blue > compval))  res_over[res_addr_over] <= 1 ;
+                               else  res_over[res_addr_over] <= 0 ;                         // over flow judge
                                 
                                 judge_array[0] <= now_res ;
                                 judge_array[19:1] <= judge_array[18:0] ;
@@ -213,9 +219,15 @@ always@(posedge dclk)
                                         h_pos <= (count_h - 5) ;
                                         v_pos <= (count_v - 5) ;
                                     end
-                                    
                             end
+                            
                         else if ((count_h > 550) && (count_h < 871) && (count_v > 28) && (count_v < 270))   // display the ref frame
+                            begin
+                                res_addr_over <= res_addr_over + 1 ;
+                                dis_data[11:0] <= (res_over[res_addr_over]) ? 12'hfff : 12'h000 ;
+                            end
+                            
+                        else if ((count_h > 220) && (count_h < 541) && (count_v > 280) && (count_v < 522))
                             begin
                                 res_addr_bri <= res_addr_bri + 1 ;
                                 case(res_bri[res_addr_bri])
@@ -228,16 +240,13 @@ always@(posedge dclk)
                                     6:dis_data[11:0] <= 12'hf80 ;
                                 endcase
                             end
-                        else if ((count_h > 220) && (count_h < 541) && (count_v > 280) && (count_v < 522))
-                            begin
-                                res_addr_over <= res_addr_over + 1 ;
-                                dis_data[11:0] <= (res_over[res_addr_over]) ? 12'hfff : 12'h000 ;
-                            end
+                            
                         else if ((count_h > 550) && (count_h < 871) && (count_v > 280) && (count_v < 522))
                             begin
                                 /*res_addr_move <= res_addr_move + 1 ;
                                 dis_data[11:0] <= (res_move[res_addr_move]) ? 12'hfff : 12'h000 ;*/
                             end
+                            
                         else if ((count_v > 530) && (count_v < 535))
                             begin
                                 dis_data[11:0] <= (count_h < (res_co+220)) ? 12'hfff : 12'h000 ;

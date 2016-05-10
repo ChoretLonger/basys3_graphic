@@ -147,7 +147,7 @@ wire judge_res = (judge_array == 20'hfffff) ? 1 : 0 ;       // judge result.If t
 reg [9:0]h_pos;
 reg [9:0]v_pos;         // the mark location reg
 
-parameter squa = 10 ,compval = 25, POSH = 220 , POSV = 28 ;
+parameter squa = 10 ,compval = 28, POSH = 220 , POSV = 28 ;
 //wire res_out = res[res_addr] ;
 always@(posedge dclk)
     begin
@@ -174,7 +174,7 @@ always@(posedge dclk)
 //                                s2_co <= 0 ;
                             end
                             
-                        else if(( count_h == 542 ) || ( count_h == 3 ))
+                        else if(( count_h == 550 ) || ( count_h == 220 ))
                             begin
                                 res_addr_over <= 0 ;
                             end

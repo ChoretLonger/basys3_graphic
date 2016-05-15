@@ -20,7 +20,9 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module VGA(clk,r,g,b,hs,vs,led,cam_dat,cam_pclk,cam_href,cam_vs,soic,soid,cam_xclk,cam_rst,cam_pwdn,cfg_sta);
+module VGA(clk,r,g,b,hs,vs,led,cam_dat,cam_pclk,cam_href,cam_vs,soic,soid,cam_xclk,cam_rst,cam_pwdn,cfg_sta,
+posclk,posdat,posrst
+);
 input clk; //40MHz 800x600
 //input clk_in_p,clk_in_n;
 //input data_in_p,data_in_n;
@@ -33,6 +35,10 @@ input [7:0]cam_dat;
 input cam_pclk,cam_href,cam_vs;
 output soic,cam_xclk,cam_rst,cam_pwdn;
 inout soid;
+
+output posdat;
+input posclk,posrst;
+
 wire soid;
 
 wire cam_dwdn = 0;
@@ -141,6 +147,12 @@ wire judge_res = (judge_array == 20'hfffff) ? 1 : 0 ;       // judge result.If t
 reg [9:0]h_pos;
 reg [9:0]v_pos;         // the mark location reg
 
+reg [15:0] x_pos;
+reg [15:0] y_pos;  // reg for position output
+reg [1:0] posclkscn;
+reg [31:0] datbuf;
+assign posdat = datbuf[31];
+
 parameter squa = 10 ,compval = 28, POSH = 220 , POSV = 28 ;
 
 always@(posedge dclk)
@@ -181,12 +193,6 @@ always@(posedge dclk)
                                 
                                 //if(v_count == 0)        // capture a frame of result as reference per sec
                                    // begin
-                                        /*
-                                        if(data_b == 16'hffff) res_bri[addrb] <= 1 ;
-                                        else res_bri[addrb] <= 0 ;
-                                        res_black[addrb] <= res_bri[addrb] ;
-                                        res_move[addrb] <= res_black[addrb] ;
-                                        */
                                         if((red > green)&&(green > blue)) res_bri[addrb] <= 6 ;
                                         else if((red > blue)&&(blue > green)) res_bri[addrb] <= 5 ;
                                         else if((green > blue)&&(blue > red)) res_bri[addrb] <= 4 ;
@@ -213,6 +219,12 @@ always@(posedge dclk)
                             begin
                                 res_addr_over <= res_addr_over + 1 ;
                                 dis_data[11:0] <= (res_over[res_addr_over]) ? 12'hfff : 12'h000 ;
+                               
+                                if(res_over[res_addr_over])
+                                    begin
+                                        x_pos <= count_h ;
+                                        y_pos <= count_v ;
+                                    end
                             end
                             
                         else if ((count_h > 220) && (count_h < 541) && (count_v > 280) && (count_v < 522))
@@ -260,7 +272,25 @@ always@(posedge dclk)
             end 
         else 
             addrb<=0;
+            
+            ///////////////////////////////////////////////////   position output array
+            posclkscn[0] <= posclk ;
+            posclkscn[1] <= posclkscn[0] ;
+            if(posclkscn == 2'b01)
+                begin
+                    if(posrst)
+                            begin
+                                datbuf <= {x_pos,y_pos} ;
+                            end
+                         else
+                            begin
+                                datbuf <= {datbuf[30:0],1'b0} ;
+                            end
+                end
+            
     end
+
+
 //////////////////////////////////////////////// a dual-port RAM for frame data
 reg [7:0]high_8bit;
 wire [15:0]data_a = {high_8bit,cam_dat} ;
@@ -450,7 +480,7 @@ always@(posedge clk)
 					 9:dat_out <= 16'h6600;
 					 10:dat_out <= 16'h6700;
 					 11:dat_out <= 16'h6950;
-					 12:dat_out <= 16'h13fb;   // AGC CTL BIT : BIT 2 
+					 12:dat_out <= 16'h13ff;   // AGC CTL BIT : BIT 2 
 					 13:dat_out <= 16'h0d01;   //PLL 
 					 14:dat_out <= 16'h0f01;
 					 15:dat_out <= 16'h1406;

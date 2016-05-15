@@ -103,11 +103,14 @@ always@(posedge dclk)
     end
 //Hsync and Vsync generator.
 
-reg [2:0]res_bri[76799:0];  // a RAM for results of color analysis
+reg res_bri[76799:0];  // a RAM for results of color analysis
 reg [16:0]res_addr_bri;     // addrss reg 
 
 reg res_over[319:0];  
 reg [16:0]res_addr_over;     // addrss reg 
+
+reg res_half[76799:0]; 
+reg [16:0]res_addr_pink; 
 
 //reg res_black[76799:0];
 //reg [16:0]res_addr_black;
@@ -127,7 +130,7 @@ wire [4:0]blue = data_b[4:0] ;
 //wire scr_res = (data_b == 16'hffff) ;
 
 reg [2:0]scr_res;       // color analysis result
-wire now_res = (res_bri[addrb] != scr_res) ? 1 : 0 ;        // differenes result
+//wire now_res = (res_bri[addrb] != scr_res) ? 1 : 0 ;        // differenes result
 
 always@(data_b)
     begin
@@ -153,7 +156,7 @@ reg [1:0] posclkscn;
 reg [31:0] datbuf;
 assign posdat = datbuf[31];
 
-parameter squa = 10 ,compval = 28, POSH = 220 , POSV = 28 ;
+parameter squa = 10 ,compval = 28, POSH = 220 , POSV = 28, halfval = 20 ;
 
 always@(posedge dclk)
     begin
@@ -174,10 +177,12 @@ always@(posedge dclk)
                             begin
                                 addrb <= 0 ;
                                 res_addr_bri <= 0 ;
+                                res_addr_over <= 0 ;
+                                res_addr_pink <= 0 ;
                                 res_co <= 0 ;
                             end
                             
-                        else if(( count_h == 550 ) || ( count_h == 220 ))
+                        else if((count_h == 550)||(count_h == 220))
                             begin
                                 res_addr_over <= 0 ;
                             end
@@ -185,71 +190,51 @@ always@(posedge dclk)
                         else if ((count_h > POSH) && (count_h < ( POSH + 321) ) && (count_v > POSV) && (count_v < ( POSV + 241 ) ))
                             begin
                                 addrb <= addrb+1;
-                                if(((count_h > (h_pos - squa)) && (count_h < (h_pos + squa)) && ((count_v == (v_pos - squa)) || (count_v == (v_pos + squa)))) || ((count_v > (v_pos - squa)) && (count_v < (v_pos + squa)) && ((count_h == (h_pos - squa)) || (count_h == (h_pos + squa)))))
-                                    //dis_data[11:0] <= 12'hf00 ;         //if there is a mark pixel,use a red square to mark
-                                    ;
-                                else dis_data[11:0] <= {data_b[15:12],data_b[10:7],data_b[4:1]} ;       // if not,display the data
-                                if(now_res) res_co <= res_co + 1 ;
+                                dis_data[11:0] <= {data_b[15:12],data_b[10:7],data_b[4:1]} ;       // display the data
                                 
-                                //if(v_count == 0)        // capture a frame of result as reference per sec
-                                   // begin
-                                        if((red > green)&&(green > blue)) res_bri[addrb] <= 6 ;
-                                        else if((red > blue)&&(blue > green)) res_bri[addrb] <= 5 ;
-                                        else if((green > blue)&&(blue > red)) res_bri[addrb] <= 4 ;
-                                        else if((green > red)&&(red > blue)) res_bri[addrb] <= 3 ;
-                                        else if((blue > green)&&(green > red)) res_bri[addrb] <= 2 ;
-                                        else if((blue > red)&&(red > green)) res_bri[addrb] <= 1 ;
-                                        else res_bri[addrb] <= 0 ;
-                                   // end
+                               if((red > (green+2))&&(green > (blue+2))) res_bri[addrb] <= 1 ;
+                               else res_bri[addrb] <= 0 ;
+                               
+                               if((red > halfval) && (green >halfval) && (blue > halfval))  res_half[addrb] <= 1 ;
+                               else  res_half[addrb] <= 0 ;  
                                
                                res_addr_over <= res_addr_over + 1 ;
                                if((red > compval) && (green >compval) && (blue > compval))  res_over[res_addr_over] <= 1 ;
-                               else  res_over[res_addr_over] <= 0 ;                         // over flow judge
-                                
-                                judge_array[0] <= now_res ;
-                                judge_array[19:1] <= judge_array[18:0] ;
-                                if(judge_res)               // if 20 pixels changer at a same frame,mark the pixel
-                                    begin
-                                        h_pos <= (count_h - 5) ;
-                                        v_pos <= (count_v - 5) ;
-                                    end
+                               else  res_over[res_addr_over] <= 0 ;   
                             end
                             
                         else if ((count_h > 550) && (count_h < 871) && (count_v > 28) && (count_v < 270))   // display the ref frame
                             begin
                                 res_addr_over <= res_addr_over + 1 ;
-                                dis_data[11:0] <= (res_over[res_addr_over]) ? 12'hfff : 12'h000 ;
+                       
+                                if(res_over[res_addr_over]) dis_data[11:0] <= 12'hfff  ;
+                                else dis_data[11:0] <= 12'h000 ;
                                
-                                if(res_over[res_addr_over])
-                                    begin
-                                        x_pos <= count_h ;
-                                        y_pos <= count_v ;
-                                    end
                             end
                             
                         else if ((count_h > 220) && (count_h < 541) && (count_v > 280) && (count_v < 522))
                             begin
-                                res_addr_bri <= res_addr_bri + 1 ;
+                                res_addr_pink <= res_addr_pink + 1 ;
                                 
-                                res_addr_over <= res_addr_over + 1 ;
-                                if( res_bri[res_addr_bri] == 6 ) res_over[res_addr_over] <= 1 ;
-                                else res_over[res_addr_over] <= 0 ;
+                                if(res_bri[res_addr_pink]) dis_data[11:0] <= 12'hfff ;
+                                else dis_data[11:0] <= 12'h000 ;
                                 
-                                case(res_bri[res_addr_bri])
-                                    0:dis_data[11:0] <= 12'hfff ;
-                                    1:dis_data[11:0] <= 12'h80f ;
-                                    2:dis_data[11:0] <= 12'h08f ;
-                                    3:dis_data[11:0] <= 12'h8f0 ;
-                                    4:dis_data[11:0] <= 12'h0f8 ;
-                                    5:dis_data[11:0] <= 12'hf08 ;
-                                    6:dis_data[11:0] <= 12'hf80 ;
-                                endcase
+                                if((res_over[res_addr_pink])&&(res_half[res_addr_pink]))
+                                    begin
+                                        x_pos <= count_h ;
+                                        y_pos <= count_v ;
+                                    end
+                                
                             end
                             
                         else if ((count_h > 550) && (count_h < 871) && (count_v > 280) && (count_v < 522))
                             begin
-                                res_addr_over <= res_addr_over + 1 ;
-                                dis_data[11:0] <= (res_over[res_addr_over]) ? 12'hfff : 12'h000 ;
+                                res_addr_bri <= res_addr_bri + 1 ;
+                                
+                                if((count_h == x_pos)||(count_v == (y_pos + 252)))
+                                    dis_data[11:0] <= 12'hf00 ;
+                                else ;
+                                    dis_data[11:0] <= (res_half[res_addr_bri]) ? 12'hfff : 12'h000 ;
                             end
                             
                         else if ((count_v > 530) && (count_v < 535))

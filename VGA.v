@@ -216,10 +216,12 @@ always@(posedge dclk)
                             begin
                                 res_addr_pink <= res_addr_pink + 1 ;
                                 
-                                if(res_bri[res_addr_pink]) dis_data[11:0] <= 12'hfff ;
+                                if((res_bri[res_addr_pink])&&(res_half[res_addr_pink])) dis_data[11:0] <= 12'hf00 ;
+                                else if((res_bri[res_addr_pink])&&(~res_half[res_addr_pink])) dis_data[11:0] <= 12'h0f0 ;
+                                else if((~res_bri[res_addr_pink])&&(res_half[res_addr_pink])) dis_data[11:0] <= 12'h00f ;
                                 else dis_data[11:0] <= 12'h000 ;
                                 
-                                if((res_over[res_addr_pink])&&(res_half[res_addr_pink]))
+                                if((res_bri[res_addr_pink])&&(res_half[res_addr_pink]))
                                     begin
                                         x_pos <= count_h ;
                                         y_pos <= count_v ;
@@ -231,9 +233,9 @@ always@(posedge dclk)
                             begin
                                 res_addr_bri <= res_addr_bri + 1 ;
                                 
-                                if((count_h == x_pos)||(count_v == (y_pos + 252)))
+                                if((count_h ==( x_pos + 330))||(count_v == y_pos))
                                     dis_data[11:0] <= 12'hf00 ;
-                                else ;
+                                else
                                     dis_data[11:0] <= (res_half[res_addr_bri]) ? 12'hfff : 12'h000 ;
                             end
                             
